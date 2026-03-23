@@ -398,7 +398,7 @@ BEGIN
     SELECT 'object_name: the stored procedure, function, or trigger this query belongs to, or "Adhoc" for ad hoc SQL' UNION ALL
     SELECT 'query_sql_text: representative query text (the most-executed variant for this query_hash)' UNION ALL
     SELECT 'query_plan: the most recent execution plan (XML) for this query_hash' UNION ALL
-    SELECT 'top_waits: top 3 Query Store wait categories with total wait time in ms (SQL 2017+ only, NULL on 2016)' UNION ALL
+    SELECT 'top_waits: top 3 Query Store wait categories with total wait time in ms (SQL 2017+ with wait stats enabled, omitted otherwise)' UNION ALL
     SELECT 'query_hash: the query_hash that groups all parameterized variants of the same query' UNION ALL
     SELECT 'query_count: how many distinct query_ids share this hash (parameterized variants)' UNION ALL
     SELECT 'plan_count: how many distinct plans exist across all variants. >1 may indicate plan instability.' UNION ALL
@@ -5155,11 +5155,31 @@ SELECT
         END + N',
     pw.primary_window,
     qi.object_name,
-    rt.query_sql_text,
+    query_sql_text =
+        (
+             SELECT
+                 [processing-instruction(query)] =
+                     REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(
+                     REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(
+                     REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(
+                         rt.query_sql_text COLLATE Latin1_General_BIN2,
+                     NCHAR(31),N''?''),NCHAR(30),N''?''),NCHAR(29),N''?''),NCHAR(28),N''?''),NCHAR(27),N''?''),NCHAR(26),N''?''),NCHAR(25),N''?''),NCHAR(24),N''?''),NCHAR(23),N''?''),NCHAR(22),N''?''),
+                     NCHAR(21),N''?''),NCHAR(20),N''?''),NCHAR(19),N''?''),NCHAR(18),N''?''),NCHAR(17),N''?''),NCHAR(16),N''?''),NCHAR(15),N''?''),NCHAR(14),N''?''),NCHAR(12),N''?''),
+                     NCHAR(11),N''?''),NCHAR(8),N''?''),NCHAR(7),N''?''),NCHAR(6),N''?''),NCHAR(5),N''?''),NCHAR(4),N''?''),NCHAR(3),N''?''),NCHAR(2),N''?''),NCHAR(1),N''?''),NCHAR(0),N'''')
+             FOR XML
+                 PATH(N''''),
+                 TYPE
+        ),
     query_plan =
         TRY_CONVERT(xml, qp.query_plan),
-    qw.top_waits,
-    s.query_hash,
+    ' +
+    CASE
+        WHEN @new = 1
+         AND @query_store_waits_enabled = 1
+        THEN N'qw.top_waits,
+    '
+        ELSE N''
+    END + N's.query_hash,
     s.query_count,
     s.plan_count,
     qi.query_id_list,
@@ -5493,9 +5513,15 @@ LEFT JOIN #hi_query_identifiers AS qi
     ON s.query_hash = qi.query_hash
 LEFT JOIN #hi_primary_window AS pw
     ON s.query_hash = pw.query_hash
-LEFT JOIN #hi_query_waits AS qw
+' +
+    CASE
+        WHEN @new = 1
+         AND @query_store_waits_enabled = 1
+        THEN N'LEFT JOIN #hi_query_waits AS qw
     ON s.query_hash = qw.query_hash
-OUTER APPLY
+'
+        ELSE N''
+    END + N'OUTER APPLY
 (
     SELECT TOP (1)
         qsp.query_plan
@@ -9831,7 +9857,7 @@ FROM
         SELECT
             tr.score,
             tr.last_refresh,
-            detail = 
+            detail =
             (
                 SELECT
                     REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(
