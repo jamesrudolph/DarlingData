@@ -4241,55 +4241,63 @@ OPTION(RECOMPILE);' + @nc10;
     SELECT
         @sql += N'
 SELECT
-    qsq.query_hash,
+    ranked.query_hash,
     qsqt.query_sql_text,
-    rn =
-        ROW_NUMBER() OVER
-        (
-            PARTITION BY qsq.query_hash
-            ORDER BY SUM(qsrs.count_executions) DESC
-        )
-FROM ' + @database_name_quoted + N'.sys.query_store_query AS qsq
-JOIN ' + @database_name_quoted + N'.sys.query_store_plan AS qsp
-    ON qsq.query_id = qsp.query_id
-JOIN ' + @database_name_quoted + N'.sys.query_store_runtime_stats AS qsrs
-    ON qsp.plan_id = qsrs.plan_id
-JOIN ' + @database_name_quoted + N'.sys.query_store_runtime_stats_interval AS qsrsi
-    ON qsrs.runtime_stats_interval_id = qsrsi.runtime_stats_interval_id
-JOIN ' + @database_name_quoted + N'.sys.query_store_query_text AS qsqt
-    ON qsq.query_text_id = qsqt.query_text_id
-WHERE qsrsi.start_time >= @start_date
-AND   qsrsi.start_time <  @end_date' + @nc10;
+    ranked.rn
+FROM
+(
+    SELECT
+        qsq.query_hash,
+        qsq.query_text_id,
+        rn =
+            ROW_NUMBER() OVER
+            (
+                PARTITION BY qsq.query_hash
+                ORDER BY SUM(qsrs.count_executions) DESC
+            )
+    FROM ' + @database_name_quoted + N'.sys.query_store_query AS qsq
+    JOIN ' + @database_name_quoted + N'.sys.query_store_plan AS qsp
+        ON qsq.query_id = qsp.query_id
+    JOIN ' + @database_name_quoted + N'.sys.query_store_runtime_stats AS qsrs
+        ON qsp.plan_id = qsrs.plan_id
+    JOIN ' + @database_name_quoted + N'.sys.query_store_runtime_stats_interval AS qsrsi
+        ON qsrs.runtime_stats_interval_id = qsrsi.runtime_stats_interval_id
+    WHERE qsrsi.start_time >= @start_date
+    AND   qsrsi.start_time <  @end_date' + @nc10;
 
     /*Same maintenance filter for representative text*/
     IF @include_maintenance = 0
     BEGIN
         SELECT
-            @sql += N'AND   NOT EXISTS
-      (
-          SELECT
-              1/0
-          FROM ' + @database_name_quoted + N'.sys.query_store_query_text AS qsqt2
-          WHERE qsqt2.query_text_id = qsq.query_text_id
-          AND
+            @sql += N'    AND   NOT EXISTS
           (
-              qsqt2.query_sql_text LIKE N''ALTER INDEX%''
-           OR qsqt2.query_sql_text LIKE N''ALTER TABLE%''
-           OR qsqt2.query_sql_text LIKE N''CREATE%INDEX%''
-           OR qsqt2.query_sql_text LIKE N''CREATE STATISTICS%''
-           OR qsqt2.query_sql_text LIKE N''UPDATE STATISTICS%''
-           OR qsqt2.query_sql_text LIKE N''%SELECT StatMan%''
-           OR qsqt2.query_sql_text LIKE N''DBCC%''
-           OR qsqt2.query_sql_text LIKE N''(@[_]msparam%''
-           OR qsqt2.query_sql_text LIKE N''WAITFOR%''
-          )
-      )' + @nc10;
+              SELECT
+                  1/0
+              FROM ' + @database_name_quoted + N'.sys.query_store_query_text AS qsqt2
+              WHERE qsqt2.query_text_id = qsq.query_text_id
+              AND
+              (
+                  qsqt2.query_sql_text LIKE N''ALTER INDEX%''
+               OR qsqt2.query_sql_text LIKE N''ALTER TABLE%''
+               OR qsqt2.query_sql_text LIKE N''CREATE%INDEX%''
+               OR qsqt2.query_sql_text LIKE N''CREATE STATISTICS%''
+               OR qsqt2.query_sql_text LIKE N''UPDATE STATISTICS%''
+               OR qsqt2.query_sql_text LIKE N''%SELECT StatMan%''
+               OR qsqt2.query_sql_text LIKE N''DBCC%''
+               OR qsqt2.query_sql_text LIKE N''(@[_]msparam%''
+               OR qsqt2.query_sql_text LIKE N''WAITFOR%''
+              )
+          )' + @nc10;
     END;
 
     SELECT
-        @sql += N'GROUP BY
-    qsq.query_hash,
-    qsqt.query_sql_text
+        @sql += N'    GROUP BY
+        qsq.query_hash,
+        qsq.query_text_id
+) AS ranked
+JOIN ' + @database_name_quoted + N'.sys.query_store_query_text AS qsqt
+    ON qsqt.query_text_id = ranked.query_text_id
+WHERE ranked.rn = 1
 OPTION(RECOMPILE);' + @nc10;
 
     IF @debug = 1
