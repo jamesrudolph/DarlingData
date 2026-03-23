@@ -9831,7 +9831,7 @@ FROM
         SELECT
             tr.score,
             tr.last_refresh,
-            detail = 
+            detail =
             (
                 SELECT
                     REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(
