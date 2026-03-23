@@ -1,4 +1,4 @@
--- Compile Date: 03/23/2026 20:35:40 UTC
+-- Compile Date: 03/23/2026 22:43:17 UTC
 SET ANSI_NULLS ON;
 SET ANSI_PADDING ON;
 SET ANSI_WARNINGS ON;
@@ -40810,7 +40810,64 @@ OPTION(RECOMPILE);' + @nc10;
     INTO #hi_scored
     FROM #hi_query_stats AS qs;
 
-    /*Step 4: Time bucketing (dynamic SQL for Query Store DMVs)*/
+    /*Step 3b: Stage query_ids for interesting hashes (reused by time bucketing and identifiers)*/
+    SELECT
+        @current_table = 'inserting #hi_id_staging_queries',
+        @sql = @isolation_level;
+
+    IF @troubleshoot_performance = 1
+    BEGIN
+        EXECUTE sys.sp_executesql
+            @troubleshoot_insert,
+          N'@current_table nvarchar(100)',
+            @current_table;
+
+        SET STATISTICS XML ON;
+    END;
+
+    SELECT
+        @sql += N'
+SELECT DISTINCT
+    qsq.query_hash,
+    qsq.query_id
+FROM ' + @database_name_quoted + N'.sys.query_store_query AS qsq
+JOIN #hi_interesting AS i
+    ON qsq.query_hash = i.query_hash
+OPTION(RECOMPILE);' + @nc10;
+
+    IF @debug = 1
+    BEGIN
+        PRINT LEN(@sql);
+        PRINT @sql;
+    END;
+
+    INSERT
+        #hi_id_staging_queries WITH (TABLOCK)
+    (
+        query_hash,
+        query_id
+    )
+    EXECUTE sys.sp_executesql
+        @sql;
+
+    IF @troubleshoot_performance = 1
+    BEGIN
+        SET STATISTICS XML OFF;
+
+        EXECUTE sys.sp_executesql
+            @troubleshoot_update,
+          N'@current_table nvarchar(100)',
+            @current_table;
+
+        EXECUTE sys.sp_executesql
+            @troubleshoot_info,
+          N'@sql nvarchar(max),
+            @current_table nvarchar(100)',
+            @sql,
+            @current_table;
+    END;
+
+    /*Step 4: Time bucketing (starts from staged query_ids, skips query_store_query)*/
     DECLARE
         @hi_utc_to_local smallint = -@utc_minutes_difference;
 
@@ -40831,7 +40888,7 @@ OPTION(RECOMPILE);' + @nc10;
     SELECT
         @sql += N'
 SELECT
-    qsq.query_hash,
+    sq.query_hash,
     time_bucket =
         CASE
             WHEN DATEPART
@@ -40855,19 +40912,17 @@ SELECT
         END,
     executions =
         SUM(qsrs.count_executions)
-FROM ' + @database_name_quoted + N'.sys.query_store_query AS qsq
+FROM #hi_id_staging_queries AS sq
 JOIN ' + @database_name_quoted + N'.sys.query_store_plan AS qsp
-    ON qsq.query_id = qsp.query_id
+    ON qsp.query_id = sq.query_id
 JOIN ' + @database_name_quoted + N'.sys.query_store_runtime_stats AS qsrs
-    ON qsp.plan_id = qsrs.plan_id
+    ON qsrs.plan_id = qsp.plan_id
 JOIN ' + @database_name_quoted + N'.sys.query_store_runtime_stats_interval AS qsrsi
-    ON qsrs.runtime_stats_interval_id = qsrsi.runtime_stats_interval_id
-JOIN #hi_interesting AS i
-    ON qsq.query_hash = i.query_hash
+    ON qsrsi.runtime_stats_interval_id = qsrs.runtime_stats_interval_id
 WHERE qsrsi.start_time >= @start_date
 AND   qsrsi.start_time <  @end_date
 GROUP BY
-    qsq.query_hash,
+    sq.query_hash,
     CASE
         WHEN DATEPART
              (
@@ -41104,65 +41159,7 @@ OPTION(RECOMPILE);' + @nc10;
         ) AS ws;
     END; /*End wait stats*/
 
-    /*Step 5b: Query identifiers (two-stage approach)*/
-    /*Stage 1: Dynamic SQL gets distinct IDs*/
-    SELECT
-        @current_table = 'inserting #hi_id_staging',
-        @sql = @isolation_level;
-
-    IF @troubleshoot_performance = 1
-    BEGIN
-        EXECUTE sys.sp_executesql
-            @troubleshoot_insert,
-          N'@current_table nvarchar(100)',
-            @current_table;
-
-        SET STATISTICS XML ON;
-    END;
-
-    SELECT
-        @sql += N'
-SELECT DISTINCT
-    qsq.query_hash,
-    qsq.query_id
-FROM ' + @database_name_quoted + N'.sys.query_store_query AS qsq
-JOIN #hi_interesting AS i
-    ON qsq.query_hash = i.query_hash
-OPTION(RECOMPILE);' + @nc10;
-
-    IF @debug = 1
-    BEGIN
-        PRINT LEN(@sql);
-        PRINT @sql;
-    END;
-
-    INSERT
-        #hi_id_staging_queries WITH (TABLOCK)
-    (
-        query_hash,
-        query_id
-    )
-    EXECUTE sys.sp_executesql
-        @sql;
-
-    IF @troubleshoot_performance = 1
-    BEGIN
-        SET STATISTICS XML OFF;
-
-        EXECUTE sys.sp_executesql
-            @troubleshoot_update,
-          N'@current_table nvarchar(100)',
-            @current_table;
-
-        EXECUTE sys.sp_executesql
-            @troubleshoot_info,
-          N'@sql nvarchar(max),
-            @current_table nvarchar(100)',
-            @sql,
-            @current_table;
-    END;
-
-    /*Insert plan and object IDs separately*/
+    /*Step 5b: Query identifiers (plan and object IDs)*/
     SELECT
         @sql = @isolation_level;
 
