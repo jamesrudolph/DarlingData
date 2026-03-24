@@ -4248,7 +4248,116 @@ OPTION(RECOMPILE);' + @nc10;
             @current_table;
     END;
 
-    /*Step 2b: Stage query_ids for interesting hashes (reused by text, time bucketing, and identifiers)*/
+    /*Step 2: Top N per metric (static SQL, temp tables only)*/
+    INSERT
+        #hi_interesting WITH (TABLOCK)
+    (
+        query_hash
+    )
+    SELECT
+        qs.query_hash
+    FROM
+    (
+        SELECT TOP (@top)
+            qs.query_hash
+        FROM #hi_query_stats AS qs
+        ORDER BY qs.total_cpu_ms DESC
+
+        UNION
+
+        SELECT TOP (@top)
+            qs.query_hash
+        FROM #hi_query_stats AS qs
+        ORDER BY qs.total_duration_ms DESC
+
+        UNION
+
+        SELECT TOP (@top)
+            qs.query_hash
+        FROM #hi_query_stats AS qs
+        ORDER BY qs.total_physical_reads_mb DESC
+
+        UNION
+
+        SELECT TOP (@top)
+            qs.query_hash
+        FROM #hi_query_stats AS qs
+        ORDER BY qs.total_writes_mb DESC
+
+        UNION
+
+        SELECT TOP (@top)
+            qs.query_hash
+        FROM #hi_query_stats AS qs
+        ORDER BY qs.total_memory_mb DESC
+
+        UNION
+
+        SELECT TOP (@top)
+            qs.query_hash
+        FROM #hi_query_stats AS qs
+        ORDER BY qs.total_executions DESC
+    ) AS qs;
+
+    /*Step 3: Score with PERCENT_RANK (static SQL, SELECT INTO)*/
+    SELECT
+        qs.*,
+        cpu_pctl =
+            CASE WHEN qs.total_cpu_ms >=
+                      SUM(qs.total_cpu_ms) OVER () * 0.001
+                 THEN PERCENT_RANK() OVER (ORDER BY qs.total_cpu_ms)
+            END,
+        duration_pctl =
+            CASE WHEN qs.total_duration_ms >=
+                      SUM(qs.total_duration_ms) OVER () * 0.001
+                 THEN PERCENT_RANK() OVER (ORDER BY qs.total_duration_ms)
+            END,
+        reads_pctl =
+            CASE WHEN qs.total_physical_reads_mb >=
+                      SUM(qs.total_physical_reads_mb) OVER () * 0.001
+                 THEN PERCENT_RANK() OVER (ORDER BY qs.total_physical_reads_mb)
+            END,
+        writes_pctl =
+            CASE WHEN qs.total_writes_mb >=
+                      SUM(qs.total_writes_mb) OVER () * 0.001
+                 THEN PERCENT_RANK() OVER (ORDER BY qs.total_writes_mb)
+            END,
+        memory_pctl =
+            CASE WHEN qs.total_memory_mb >=
+                      SUM(qs.total_memory_mb) OVER () * 0.001
+                 THEN PERCENT_RANK() OVER (ORDER BY qs.total_memory_mb)
+            END,
+        executions_pctl =
+            CASE WHEN qs.total_executions >=
+                      SUM(CONVERT(float, qs.total_executions)) OVER () * 0.001
+                 THEN PERCENT_RANK() OVER (ORDER BY qs.total_executions)
+            END,
+        cpu_share =
+            CONVERT(decimal(5, 1), 100.0 * qs.total_cpu_ms /
+            NULLIF(SUM(qs.total_cpu_ms) OVER (), 0)),
+        duration_share =
+            CONVERT(decimal(5, 1), 100.0 * qs.total_duration_ms /
+            NULLIF(SUM(qs.total_duration_ms) OVER (), 0)),
+        reads_share =
+            CONVERT(decimal(5, 1), 100.0 * qs.total_physical_reads_mb /
+            NULLIF(SUM(qs.total_physical_reads_mb) OVER (), 0)),
+        writes_share =
+            CONVERT(decimal(5, 1), 100.0 * qs.total_writes_mb /
+            NULLIF(SUM(qs.total_writes_mb) OVER (), 0)),
+        memory_share =
+            CONVERT(decimal(5, 1), 100.0 * qs.total_memory_mb /
+            NULLIF(SUM(qs.total_memory_mb) OVER (), 0)),
+        executions_share =
+            CONVERT
+            (
+                decimal(5, 1),
+                100.0 * qs.total_executions /
+                NULLIF(SUM(CONVERT(float, qs.total_executions)) OVER (), 0)
+            )
+    INTO #hi_scored
+    FROM #hi_query_stats AS qs;
+
+    /*Step 3b: Stage query_ids for interesting hashes (reused by text, time bucketing, and identifiers)*/
     SELECT
         @current_table = 'inserting #hi_id_staging_queries',
         @sql = @isolation_level;
@@ -4305,7 +4414,7 @@ OPTION(RECOMPILE);' + @nc10;
             @current_table;
     END;
 
-    /*Step 2c: Representative query text per query_hash*/
+    /*Step 3c: Representative query text per query_hash*/
     SELECT
         @current_table = 'inserting #hi_representative_text',
         @sql = @isolation_level;
@@ -4420,115 +4529,6 @@ OPTION(RECOMPILE);' + @nc10;
             @sql,
             @current_table;
     END;
-
-    /*Step 2: Top N per metric (static SQL, temp tables only)*/
-    INSERT
-        #hi_interesting WITH (TABLOCK)
-    (
-        query_hash
-    )
-    SELECT
-        qs.query_hash
-    FROM
-    (
-        SELECT TOP (@top)
-            qs.query_hash
-        FROM #hi_query_stats AS qs
-        ORDER BY qs.total_cpu_ms DESC
-
-        UNION
-
-        SELECT TOP (@top)
-            qs.query_hash
-        FROM #hi_query_stats AS qs
-        ORDER BY qs.total_duration_ms DESC
-
-        UNION
-
-        SELECT TOP (@top)
-            qs.query_hash
-        FROM #hi_query_stats AS qs
-        ORDER BY qs.total_physical_reads_mb DESC
-
-        UNION
-
-        SELECT TOP (@top)
-            qs.query_hash
-        FROM #hi_query_stats AS qs
-        ORDER BY qs.total_writes_mb DESC
-
-        UNION
-
-        SELECT TOP (@top)
-            qs.query_hash
-        FROM #hi_query_stats AS qs
-        ORDER BY qs.total_memory_mb DESC
-
-        UNION
-
-        SELECT TOP (@top)
-            qs.query_hash
-        FROM #hi_query_stats AS qs
-        ORDER BY qs.total_executions DESC
-    ) AS qs;
-
-    /*Step 3: Score with PERCENT_RANK (static SQL, SELECT INTO)*/
-    SELECT
-        qs.*,
-        cpu_pctl =
-            CASE WHEN qs.total_cpu_ms >=
-                      SUM(qs.total_cpu_ms) OVER () * 0.001
-                 THEN PERCENT_RANK() OVER (ORDER BY qs.total_cpu_ms)
-            END,
-        duration_pctl =
-            CASE WHEN qs.total_duration_ms >=
-                      SUM(qs.total_duration_ms) OVER () * 0.001
-                 THEN PERCENT_RANK() OVER (ORDER BY qs.total_duration_ms)
-            END,
-        reads_pctl =
-            CASE WHEN qs.total_physical_reads_mb >=
-                      SUM(qs.total_physical_reads_mb) OVER () * 0.001
-                 THEN PERCENT_RANK() OVER (ORDER BY qs.total_physical_reads_mb)
-            END,
-        writes_pctl =
-            CASE WHEN qs.total_writes_mb >=
-                      SUM(qs.total_writes_mb) OVER () * 0.001
-                 THEN PERCENT_RANK() OVER (ORDER BY qs.total_writes_mb)
-            END,
-        memory_pctl =
-            CASE WHEN qs.total_memory_mb >=
-                      SUM(qs.total_memory_mb) OVER () * 0.001
-                 THEN PERCENT_RANK() OVER (ORDER BY qs.total_memory_mb)
-            END,
-        executions_pctl =
-            CASE WHEN qs.total_executions >=
-                      SUM(CONVERT(float, qs.total_executions)) OVER () * 0.001
-                 THEN PERCENT_RANK() OVER (ORDER BY qs.total_executions)
-            END,
-        cpu_share =
-            CONVERT(decimal(5, 1), 100.0 * qs.total_cpu_ms /
-            NULLIF(SUM(qs.total_cpu_ms) OVER (), 0)),
-        duration_share =
-            CONVERT(decimal(5, 1), 100.0 * qs.total_duration_ms /
-            NULLIF(SUM(qs.total_duration_ms) OVER (), 0)),
-        reads_share =
-            CONVERT(decimal(5, 1), 100.0 * qs.total_physical_reads_mb /
-            NULLIF(SUM(qs.total_physical_reads_mb) OVER (), 0)),
-        writes_share =
-            CONVERT(decimal(5, 1), 100.0 * qs.total_writes_mb /
-            NULLIF(SUM(qs.total_writes_mb) OVER (), 0)),
-        memory_share =
-            CONVERT(decimal(5, 1), 100.0 * qs.total_memory_mb /
-            NULLIF(SUM(qs.total_memory_mb) OVER (), 0)),
-        executions_share =
-            CONVERT
-            (
-                decimal(5, 1),
-                100.0 * qs.total_executions /
-                NULLIF(SUM(CONVERT(float, qs.total_executions)) OVER (), 0)
-            )
-    INTO #hi_scored
-    FROM #hi_query_stats AS qs;
 
     /*Step 4: Time bucketing (starts from staged query_ids, skips query_store_query)*/
     DECLARE
