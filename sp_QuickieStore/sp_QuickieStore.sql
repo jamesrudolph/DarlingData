@@ -3948,7 +3948,8 @@ BEGIN
     CREATE TABLE
         #hi_plan_stats
     (
-        plan_id bigint NOT NULL,
+        plan_id bigint NOT NULL
+            PRIMARY KEY CLUSTERED,
         total_executions bigint NOT NULL,
         total_cpu_ms decimal(38, 6) NOT NULL,
         min_cpu_ms decimal(38, 6) NULL,
@@ -3971,7 +3972,8 @@ BEGIN
     CREATE TABLE
         #hi_query_stats
     (
-        query_hash binary(8) NOT NULL,
+        query_hash binary(8) NOT NULL
+            PRIMARY KEY CLUSTERED,
         query_count bigint NOT NULL,
         plan_count bigint NOT NULL,
         total_executions bigint NOT NULL,
@@ -4002,6 +4004,7 @@ BEGIN
         #hi_interesting
     (
         query_hash binary(8) NOT NULL
+            PRIMARY KEY CLUSTERED
     );
 
     CREATE TABLE
@@ -4023,14 +4026,16 @@ BEGIN
     CREATE TABLE
         #hi_primary_window
     (
-        query_hash binary(8) NOT NULL,
+        query_hash binary(8) NOT NULL
+            PRIMARY KEY CLUSTERED,
         primary_window nvarchar(60) NULL
     );
 
     CREATE TABLE
         #hi_query_waits
     (
-        query_hash binary(8) NOT NULL,
+        query_hash binary(8) NOT NULL
+            PRIMARY KEY CLUSTERED,
         top_waits nvarchar(max) NULL
     );
 
@@ -4046,7 +4051,8 @@ BEGIN
     CREATE TABLE
         #hi_query_identifiers
     (
-        query_hash binary(8) NOT NULL,
+        query_hash binary(8) NOT NULL
+            PRIMARY KEY CLUSTERED,
         query_id_list nvarchar(max) NULL,
         plan_id_list nvarchar(max) NULL,
         object_name nvarchar(500) NULL
@@ -4080,7 +4086,8 @@ BEGIN
         object_name nvarchar(500) NULL,
         query_sql_text nvarchar(max) NULL,
         top_waits nvarchar(max) NULL,
-        query_hash binary(8) NOT NULL,
+        query_hash binary(8) NOT NULL
+            PRIMARY KEY CLUSTERED,
         query_count bigint NOT NULL,
         plan_count bigint NOT NULL,
         query_id_list nvarchar(max) NULL,
@@ -4103,6 +4110,7 @@ BEGIN
         #hi_intervals
     (
         runtime_stats_interval_id bigint NOT NULL
+        PRIMARY KEY CLUSTERED
     );
 
     SELECT
@@ -4228,7 +4236,7 @@ GROUP BY
     qsrs.plan_id
 HAVING
     SUM(qsrs.count_executions) > 0
-OPTION(RECOMPILE);' + @nc10;
+OPTION(RECOMPILE, HASH JOIN);' + @nc10;
 
     IF @debug = 1
     BEGIN
