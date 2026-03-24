@@ -4157,31 +4157,6 @@ JOIN ' + @database_name_quoted + N'.sys.query_store_runtime_stats_interval AS qs
 WHERE qsrsi.start_time >= @start_date
 AND   qsrsi.start_time <  @end_date' + @nc10;
 
-    /*Maintenance filter: exclude index/stats operations*/
-    IF @include_maintenance = 0
-    BEGIN
-        SELECT
-            @sql += N'AND   NOT EXISTS
-      (
-          SELECT
-              1/0
-          FROM ' + @database_name_quoted + N'.sys.query_store_query_text AS qsqt
-          WHERE qsqt.query_text_id = qsq.query_text_id
-          AND
-          (
-              qsqt.query_sql_text LIKE N''ALTER INDEX%''
-           OR qsqt.query_sql_text LIKE N''ALTER TABLE%''
-           OR qsqt.query_sql_text LIKE N''CREATE%INDEX%''
-           OR qsqt.query_sql_text LIKE N''CREATE STATISTICS%''
-           OR qsqt.query_sql_text LIKE N''UPDATE STATISTICS%''
-           OR qsqt.query_sql_text LIKE N''%SELECT StatMan%''
-           OR qsqt.query_sql_text LIKE N''DBCC%''
-           OR qsqt.query_sql_text LIKE N''(@[_]msparam%''
-           OR qsqt.query_sql_text LIKE N''WAITFOR%''
-          )
-      )' + @nc10;
-    END;
-
     SELECT
         @sql += N'GROUP BY
     qsq.query_hash
@@ -4457,31 +4432,6 @@ FROM
         ON qsrsi.runtime_stats_interval_id = qsrs.runtime_stats_interval_id
     WHERE qsrsi.start_time >= @start_date
     AND   qsrsi.start_time <  @end_date' + @nc10;
-
-    /*Same maintenance filter for representative text*/
-    IF @include_maintenance = 0
-    BEGIN
-        SELECT
-            @sql += N'    AND   NOT EXISTS
-          (
-              SELECT
-                  1/0
-              FROM ' + @database_name_quoted + N'.sys.query_store_query_text AS qsqt2
-              WHERE qsqt2.query_text_id = qsq.query_text_id
-              AND
-              (
-                  qsqt2.query_sql_text LIKE N''ALTER INDEX%''
-               OR qsqt2.query_sql_text LIKE N''ALTER TABLE%''
-               OR qsqt2.query_sql_text LIKE N''CREATE%INDEX%''
-               OR qsqt2.query_sql_text LIKE N''CREATE STATISTICS%''
-               OR qsqt2.query_sql_text LIKE N''UPDATE STATISTICS%''
-               OR qsqt2.query_sql_text LIKE N''%SELECT StatMan%''
-               OR qsqt2.query_sql_text LIKE N''DBCC%''
-               OR qsqt2.query_sql_text LIKE N''(@[_]msparam%''
-               OR qsqt2.query_sql_text LIKE N''WAITFOR%''
-              )
-          )' + @nc10;
-    END;
 
     SELECT
         @sql += N'    GROUP BY
@@ -5660,7 +5610,6 @@ OUTER APPLY
         JOIN ' + @database_name_quoted + N'.sys.query_store_plan AS qsp
             ON qsq.query_id = qsp.query_id
         WHERE qsq.query_hash = o.query_hash
-        AND   qsp.query_plan IS NOT NULL
     ) AS qp0
     WHERE qp0.n = 1
 ) AS qp
