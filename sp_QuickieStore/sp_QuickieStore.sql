@@ -4098,7 +4098,72 @@ BEGIN
         volatile_metrics nvarchar(4000) NULL
     );
 
-    /*Step 1a: Aggregate runtime stats to plan_id level (qsrs + qsrsi only)*/
+    /*Step 1a: Stage interval IDs for the time window*/
+    CREATE TABLE
+        #hi_intervals
+    (
+        runtime_stats_interval_id bigint NOT NULL
+    );
+
+    SELECT
+        @current_table = 'inserting #hi_intervals',
+        @sql = @isolation_level;
+
+    IF @troubleshoot_performance = 1
+    BEGIN
+        EXECUTE sys.sp_executesql
+            @troubleshoot_insert,
+          N'@current_table nvarchar(100)',
+            @current_table;
+
+        SET STATISTICS XML ON;
+    END;
+
+    SELECT
+        @sql += N'
+SELECT
+    qsrsi.runtime_stats_interval_id
+FROM ' + @database_name_quoted + N'.sys.query_store_runtime_stats_interval AS qsrsi
+WHERE qsrsi.start_time >= @start_date
+AND   qsrsi.start_time <  @end_date
+OPTION(RECOMPILE);' + @nc10;
+
+    IF @debug = 1
+    BEGIN
+        PRINT LEN(@sql);
+        PRINT @sql;
+    END;
+
+    INSERT
+        #hi_intervals WITH (TABLOCK)
+    (
+        runtime_stats_interval_id
+    )
+    EXECUTE sys.sp_executesql
+        @sql,
+      N'@start_date datetimeoffset(7),
+        @end_date datetimeoffset(7)',
+        @start_date,
+        @end_date;
+
+    IF @troubleshoot_performance = 1
+    BEGIN
+        SET STATISTICS XML OFF;
+
+        EXECUTE sys.sp_executesql
+            @troubleshoot_update,
+          N'@current_table nvarchar(100)',
+            @current_table;
+
+        EXECUTE sys.sp_executesql
+            @troubleshoot_info,
+          N'@sql nvarchar(max),
+            @current_table nvarchar(100)',
+            @sql,
+            @current_table;
+    END;
+
+    /*Step 1b: Aggregate runtime stats to plan_id level using staged intervals*/
     SELECT
         @current_table = 'inserting #hi_plan_stats',
         @sql = @isolation_level;
@@ -4152,10 +4217,13 @@ SELECT
     max_dop =
         MAX(qsrs.max_dop)
 FROM ' + @database_name_quoted + N'.sys.query_store_runtime_stats AS qsrs
-JOIN ' + @database_name_quoted + N'.sys.query_store_runtime_stats_interval AS qsrsi
-    ON qsrsi.runtime_stats_interval_id = qsrs.runtime_stats_interval_id
-WHERE qsrsi.start_time >= @start_date
-AND   qsrsi.start_time <  @end_date
+WHERE EXISTS
+(
+    SELECT
+        1/0
+    FROM #hi_intervals AS hi
+    WHERE hi.runtime_stats_interval_id = qsrs.runtime_stats_interval_id
+)
 GROUP BY
     qsrs.plan_id
 HAVING
@@ -4191,11 +4259,7 @@ OPTION(RECOMPILE);' + @nc10;
         max_dop
     )
     EXECUTE sys.sp_executesql
-        @sql,
-      N'@start_date datetimeoffset(7),
-        @end_date datetimeoffset(7)',
-        @start_date,
-        @end_date;
+        @sql;
 
     IF @troubleshoot_performance = 1
     BEGIN
