@@ -2117,6 +2117,58 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         RAISERROR('Generating #index_details insert', 0, 0) WITH NOWAIT;
     END;
 
+    /*Stage dm_db_index_usage_stats for this database to avoid repeated DMV scans*/
+    IF OBJECT_ID(N'tempdb..#usage_stats') IS NOT NULL
+    BEGIN
+        TRUNCATE TABLE #usage_stats;
+    END;
+    ELSE
+    BEGIN
+        CREATE TABLE
+            #usage_stats
+        (
+            object_id int NOT NULL,
+            index_id int NOT NULL,
+            user_seeks bigint NOT NULL,
+            user_scans bigint NOT NULL,
+            user_lookups bigint NOT NULL,
+            user_updates bigint NOT NULL,
+            last_user_seek datetime NULL,
+            last_user_scan datetime NULL,
+            last_user_lookup datetime NULL,
+            last_user_update datetime NULL,
+            PRIMARY KEY CLUSTERED (object_id, index_id)
+        );
+    END;
+
+    INSERT
+        #usage_stats WITH (TABLOCK)
+    (
+        object_id,
+        index_id,
+        user_seeks,
+        user_scans,
+        user_lookups,
+        user_updates,
+        last_user_seek,
+        last_user_scan,
+        last_user_lookup,
+        last_user_update
+    )
+    SELECT
+        us.object_id,
+        us.index_id,
+        us.user_seeks,
+        us.user_scans,
+        us.user_lookups,
+        us.user_updates,
+        us.last_user_seek,
+        us.last_user_scan,
+        us.last_user_lookup,
+        us.last_user_update
+    FROM sys.dm_db_index_usage_stats AS us
+    WHERE us.database_id = @current_database_id;
+
     SELECT
         @sql = N'
     SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
@@ -2238,10 +2290,9 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         N'.sys.columns AS c
       ON  ic.object_id = c.object_id
       AND ic.column_id = c.column_id
-    LEFT JOIN sys.dm_db_index_usage_stats AS us
+    LEFT JOIN #usage_stats AS us
       ON  i.object_id = us.object_id
       AND i.index_id = us.index_id
-      AND us.database_id = @database_id
     WHERE (t.object_id IS NULL OR t.is_ms_shipped = 0)
     AND   i.type IN (1, 2)
     AND   i.is_disabled = 0
