@@ -2167,7 +2167,15 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         us.last_user_lookup,
         us.last_user_update
     FROM sys.dm_db_index_usage_stats AS us
-    WHERE us.database_id = @current_database_id;
+    WHERE us.database_id = @current_database_id
+    AND   EXISTS
+    (
+        SELECT
+            1/0
+        FROM #filtered_objects AS fo
+        WHERE fo.database_id = @current_database_id
+        AND   fo.object_id = us.object_id
+    );
 
     SELECT
         @sql = N'
