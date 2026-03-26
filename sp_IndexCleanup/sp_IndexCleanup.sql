@@ -2311,7 +2311,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
             nvarchar(MAX),
             N'.sys.dm_db_partition_stats ps
         WHERE ps.object_id = i.object_id
-        AND   ps.index_id = 1
+        AND   ps.index_id IN (0, 1)
         AND   ps.row_count >= @min_rows
     )'
         );
