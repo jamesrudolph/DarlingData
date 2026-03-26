@@ -4524,8 +4524,8 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
             CASE
                 WHEN ia.action = N'MAKE UNIQUE'
                 THEN N'CREATE UNIQUE '
-                WHEN ia.action = N'MERGE INCLUDES'
-                THEN N'CREATE '
+                WHEN ia.is_unique = 1
+                THEN N'CREATE UNIQUE '
                 ELSE N'CREATE '
             END +
             N'INDEX ' +
