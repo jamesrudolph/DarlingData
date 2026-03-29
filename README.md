@@ -2,7 +2,21 @@
 
 # Darling Data: SQL Server Troubleshooting Scripts
 <a name="header1"></a>
-![licence badge]
+<p align="center">
+  <a href="https://github.com/erikdarlingdata/DarlingData/stargazers"><img src="https://img.shields.io/github/stars/erikdarlingdata/DarlingData?style=for-the-badge&logo=github&color=gold&logoColor=black" alt="GitHub Stars"></a>
+  <a href="https://github.com/erikdarlingdata/DarlingData/network/members"><img src="https://img.shields.io/github/forks/erikdarlingdata/DarlingData?style=for-the-badge&logo=github" alt="GitHub Forks"></a>
+  <a href="https://github.com/erikdarlingdata/DarlingData/blob/main/LICENSE.md"><img src="https://img.shields.io/github/license/erikdarlingdata/DarlingData?style=for-the-badge" alt="License: MIT"></a>
+  <a href="https://github.com/erikdarlingdata/DarlingData/releases/latest"><img src="https://img.shields.io/github/v/release/erikdarlingdata/DarlingData?style=for-the-badge" alt="Latest Release"></a>
+  <a href="https://github.com/erikdarlingdata/DarlingData/issues"><img src="https://img.shields.io/github/issues/erikdarlingdata/DarlingData?style=for-the-badge" alt="Open Issues"></a>
+  <a href="https://github.com/erikdarlingdata/DarlingData/commits/main"><img src="https://img.shields.io/github/last-commit/erikdarlingdata/DarlingData?style=for-the-badge" alt="Last Commit"></a>
+  <a href="https://github.com/erikdarlingdata/DarlingData/actions/workflows/sql-tests.yml"><img src="https://img.shields.io/github/actions/workflow/status/erikdarlingdata/DarlingData/sql-tests.yml?style=for-the-badge&label=SQL%20Tests" alt="SQL Tests CI"></a>
+</p>
+<p align="center">
+  <a href="https://x.com/erikdarling"><img src="https://img.shields.io/badge/Follow_%40ErikDarling-black?style=for-the-badge&logo=x&logoColor=white" alt="Follow @ErikDarling on X"></a>
+  <a href="https://www.youtube.com/@erikaboringdata"><img src="https://img.shields.io/badge/YouTube-Subscribe-red?style=for-the-badge&logo=youtube&logoColor=white" alt="YouTube Subscribe"></a>
+  <a href="https://www.linkedin.com/in/erik-darling-83545913/"><img src="https://img.shields.io/badge/LinkedIn-Connect-0077B5?style=for-the-badge&logo=linkedin&logoColor=white" alt="LinkedIn Connect"></a>
+  <a href="https://www.erikdarlingdata.com"><img src="https://img.shields.io/badge/Blog-erikdarlingdata.com-FF6B35?style=for-the-badge&logo=wordpress&logoColor=white" alt="Blog"></a>
+</p>
 
 # Navigatory 
  - Scripts:
