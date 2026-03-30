@@ -1,4 +1,4 @@
--- Compile Date: 03/29/2026 13:52:57 UTC
+-- Compile Date: 03/30/2026 22:13:22 UTC
 SET ANSI_NULLS ON;
 SET ANSI_PADDING ON;
 SET ANSI_WARNINGS ON;
@@ -49436,96 +49436,99 @@ BEGIN
                 '#requested_but_skipped_databases is empty';
     END;
 
-    IF EXISTS
-       (
-           SELECT
-               1/0
-           FROM #distinct_plans AS dp
-       )
+    IF @find_high_impact = 0
     BEGIN
-        SELECT
-            table_name =
-                '#distinct_plans',
-            dp.*
-        FROM #distinct_plans AS dp
-        ORDER BY
-            dp.plan_id
-        OPTION(RECOMPILE);
-    END;
-    ELSE
-    BEGIN
-        SELECT
-            result =
-                '#distinct_plans is empty';
-    END;
+        IF EXISTS
+           (
+               SELECT
+                   1/0
+               FROM #distinct_plans AS dp
+           )
+        BEGIN
+            SELECT
+                table_name =
+                    '#distinct_plans',
+                dp.*
+            FROM #distinct_plans AS dp
+            ORDER BY
+                dp.plan_id
+            OPTION(RECOMPILE);
+        END;
+        ELSE
+        BEGIN
+            SELECT
+                result =
+                    '#distinct_plans is empty';
+        END;
 
-    IF EXISTS
-       (
-           SELECT
-               1/0
-           FROM #procedure_plans AS pp
-       )
-    BEGIN
-        SELECT
-            table_name =
-                '#procedure_plans',
-            pp.*
-        FROM #procedure_plans AS pp
-        ORDER BY
-            pp.plan_id
-        OPTION(RECOMPILE);
-    END;
-    ELSE
-    BEGIN
-        SELECT
-            result =
-                '#procedure_plans is empty';
-    END;
+        IF EXISTS
+           (
+               SELECT
+                   1/0
+               FROM #procedure_plans AS pp
+           )
+        BEGIN
+            SELECT
+                table_name =
+                    '#procedure_plans',
+                pp.*
+            FROM #procedure_plans AS pp
+            ORDER BY
+                pp.plan_id
+            OPTION(RECOMPILE);
+        END;
+        ELSE
+        BEGIN
+            SELECT
+                result =
+                    '#procedure_plans is empty';
+        END;
 
-    IF EXISTS
-       (
-           SELECT
-               1/0
-           FROM #procedure_object_ids AS poi
-       )
-    BEGIN
-        SELECT
-            table_name =
-                '#procedure_object_ids',
-            poi.*
-        FROM #procedure_object_ids AS poi
-        ORDER BY
-            poi.object_id
-        OPTION(RECOMPILE);
-    END;
-    ELSE
-    BEGIN
-        SELECT
-            result =
-                '#procedure_object_ids is empty';
-    END;
+        IF EXISTS
+           (
+               SELECT
+                   1/0
+               FROM #procedure_object_ids AS poi
+           )
+        BEGIN
+            SELECT
+                table_name =
+                    '#procedure_object_ids',
+                poi.*
+            FROM #procedure_object_ids AS poi
+            ORDER BY
+                poi.object_id
+            OPTION(RECOMPILE);
+        END;
+        ELSE
+        BEGIN
+            SELECT
+                result =
+                    '#procedure_object_ids is empty';
+        END;
 
-    IF EXISTS
-       (
-           SELECT
-               1/0
-           FROM #query_types AS qt
-       )
-    BEGIN
-        SELECT
-            table_name =
-                '#query_types',
-            qt.*
-        FROM #query_types AS qt
-        ORDER BY
-            qt.plan_id
-        OPTION(RECOMPILE);
-    END;
-    ELSE
-    BEGIN
-        SELECT
-            result =
-                '#query_types is empty';
+        IF EXISTS
+           (
+               SELECT
+                   1/0
+               FROM #query_types AS qt
+           )
+        BEGIN
+            SELECT
+                table_name =
+                    '#query_types',
+                qt.*
+            FROM #query_types AS qt
+            ORDER BY
+                qt.plan_id
+            OPTION(RECOMPILE);
+        END;
+        ELSE
+        BEGIN
+            SELECT
+                result =
+                    '#query_types is empty';
+        END;
     END;
 
     IF EXISTS
@@ -49597,142 +49600,145 @@ BEGIN
                 '#include_query_hashes is empty';
     END;
 
-    IF EXISTS
-       (
-           SELECT
-               1/0
-           FROM #plan_ids_having_enough_executions AS plans
-       )
+    IF @find_high_impact = 0
     BEGIN
-        SELECT
-            table_name =
-                '#plan_ids_having_enough_executions',
-            plans.*
-        FROM #plan_ids_having_enough_executions AS plans
-        ORDER BY
-            plans.plan_id
-        OPTION(RECOMPILE);
-    END;
-    ELSE
-    BEGIN
-        SELECT
-            result =
-                '#plan_ids_having_enough_executions is empty';
-    END;
+        IF EXISTS
+           (
+               SELECT
+                   1/0
+               FROM #plan_ids_having_enough_executions AS plans
+           )
+        BEGIN
+            SELECT
+                table_name =
+                    '#plan_ids_having_enough_executions',
+                plans.*
+            FROM #plan_ids_having_enough_executions AS plans
+            ORDER BY
+                plans.plan_id
+            OPTION(RECOMPILE);
+        END;
+        ELSE
+        BEGIN
+            SELECT
+                result =
+                    '#plan_ids_having_enough_executions is empty';
+        END;
 
-    IF EXISTS
-       (
-           SELECT
-               1/0
-           FROM #plan_ids_with_query_hashes AS hashes
-       )
-    BEGIN
-        SELECT
-            table_name =
-                '#plan_ids_with_query_hashes',
-            hashes.*
-        FROM #plan_ids_with_query_hashes AS hashes
-        ORDER BY
-            hashes.plan_id
-        OPTION(RECOMPILE);
-    END;
-    ELSE
-    BEGIN
-        SELECT
-            result =
-                '#plan_ids_with_query_hashes is empty';
-    END;
+        IF EXISTS
+           (
+               SELECT
+                   1/0
+               FROM #plan_ids_with_query_hashes AS hashes
+           )
+        BEGIN
+            SELECT
+                table_name =
+                    '#plan_ids_with_query_hashes',
+                hashes.*
+            FROM #plan_ids_with_query_hashes AS hashes
+            ORDER BY
+                hashes.plan_id
+            OPTION(RECOMPILE);
+        END;
+        ELSE
+        BEGIN
+            SELECT
+                result =
+                    '#plan_ids_with_query_hashes is empty';
+        END;
 
-    IF EXISTS
-       (
-           SELECT
-               1/0
-           FROM #plan_ids_with_total_waits AS waits
-       )
-    BEGIN
-        SELECT
-            table_name =
-                '#plan_ids_with_total_waits',
-            waits.*
-        FROM #plan_ids_with_total_waits AS waits
-        ORDER BY
-            waits.plan_id
-        OPTION(RECOMPILE);
-    END;
-    ELSE
-    BEGIN
-        SELECT
-            result =
-                '#plan_ids_with_total_waits is empty';
-    END;
+        IF EXISTS
+           (
+               SELECT
+                   1/0
+               FROM #plan_ids_with_total_waits AS waits
+           )
+        BEGIN
+            SELECT
+                table_name =
+                    '#plan_ids_with_total_waits',
+                waits.*
+            FROM #plan_ids_with_total_waits AS waits
+            ORDER BY
+                waits.plan_id
+            OPTION(RECOMPILE);
+        END;
+        ELSE
+        BEGIN
+            SELECT
+                result =
+                    '#plan_ids_with_total_waits is empty';
+        END;
 
-    IF EXISTS
-       (
-           SELECT
-               1/0
-           FROM #regression_baseline_runtime_stats AS runtime_stats_baseline
-       )
-    BEGIN
-        SELECT
-            table_name =
-                '#regression_baseline_runtime_stats',
-            runtime_stats_baseline.*
-        FROM #regression_baseline_runtime_stats AS runtime_stats_baseline
-        ORDER BY
-           runtime_stats_baseline.query_hash
-        OPTION(RECOMPILE);
-    END;
-    ELSE
-    BEGIN
-        SELECT
-            result =
-                '#regression_baseline_runtime_stats is empty';
-    END;
+        IF EXISTS
+           (
+               SELECT
+                   1/0
+               FROM #regression_baseline_runtime_stats AS runtime_stats_baseline
+           )
+        BEGIN
+            SELECT
+                table_name =
+                    '#regression_baseline_runtime_stats',
+                runtime_stats_baseline.*
+            FROM #regression_baseline_runtime_stats AS runtime_stats_baseline
+            ORDER BY
+               runtime_stats_baseline.query_hash
+            OPTION(RECOMPILE);
+        END;
+        ELSE
+        BEGIN
+            SELECT
+                result =
+                    '#regression_baseline_runtime_stats is empty';
+        END;
 
-    IF EXISTS
-       (
-           SELECT
-               1/0
-           FROM #regression_current_runtime_stats AS runtime_stats_current
-       )
-    BEGIN
-        SELECT
-            table_name =
-                '#regression_current_runtime_stats',
-            runtime_stats_current.*
-        FROM #regression_current_runtime_stats AS runtime_stats_current
-        ORDER BY
-           runtime_stats_current.query_hash
-        OPTION(RECOMPILE);
-    END;
-    ELSE
-    BEGIN
-        SELECT
-            result =
-                '#regression_current_runtime_stats is empty';
-    END;
+        IF EXISTS
+           (
+               SELECT
+                   1/0
+               FROM #regression_current_runtime_stats AS runtime_stats_current
+           )
+        BEGIN
+            SELECT
+                table_name =
+                    '#regression_current_runtime_stats',
+                runtime_stats_current.*
+            FROM #regression_current_runtime_stats AS runtime_stats_current
+            ORDER BY
+               runtime_stats_current.query_hash
+            OPTION(RECOMPILE);
+        END;
+        ELSE
+        BEGIN
+            SELECT
+                result =
+                    '#regression_current_runtime_stats is empty';
+        END;
 
-    IF EXISTS
-       (
-           SELECT
-               1/0
-           FROM #regression_changes AS changes
-       )
-    BEGIN
-        SELECT
-            table_name =
-                '#regression_changes',
-            changes.*
-        FROM #regression_changes AS changes
-        ORDER BY
-           changes.plan_id
-        OPTION(RECOMPILE);
-    END;
-    ELSE
-    BEGIN
-        SELECT
-            result =
-                '#regression_changes is empty';
+        IF EXISTS
+           (
+               SELECT
+                   1/0
+               FROM #regression_changes AS changes
+           )
+        BEGIN
+            SELECT
+                table_name =
+                    '#regression_changes',
+                changes.*
+            FROM #regression_changes AS changes
+            ORDER BY
+               changes.plan_id
+            OPTION(RECOMPILE);
+        END;
+        ELSE
+        BEGIN
+            SELECT
+                result =
+                    '#regression_changes is empty';
+        END;
     END;
 
     IF EXISTS
@@ -50006,6 +50012,9 @@ BEGIN
             result =
                 '#database_query_store_options is empty';
     END;
+
+    IF @find_high_impact = 0
+    BEGIN
 
     IF EXISTS
        (
@@ -50463,6 +50472,8 @@ BEGIN
                 '#forced_plans_failures is empty';
     END;
 
+    END; /*End @find_high_impact = 0 for query store tables*/
+
     IF EXISTS
        (
           SELECT
@@ -50485,6 +50496,9 @@ BEGIN
             result =
                 '#troubleshoot_performance is empty';
     END;
+
+    IF @find_high_impact = 0
+    BEGIN
     IF EXISTS
        (
           SELECT
@@ -50507,6 +50521,363 @@ BEGIN
             result =
                 '#query_hash_totals is empty';
     END;
+    END; /*End @find_high_impact = 0 for query hash totals*/
+
+    IF  @find_high_impact = 1
+    AND OBJECT_ID('tempdb..#hi_intervals') IS NOT NULL
+    BEGIN
+        IF EXISTS
+           (
+              SELECT
+                  1/0
+              FROM #hi_intervals AS hi
+           )
+        BEGIN
+            SELECT
+                table_name =
+                    '#hi_intervals',
+                hi.*
+            FROM #hi_intervals AS hi
+            ORDER BY
+                hi.runtime_stats_interval_id
+            OPTION(RECOMPILE);
+        END;
+        ELSE
+        BEGIN
+            SELECT
+                result =
+                    '#hi_intervals is empty';
+        END;
+
+        IF EXISTS
+           (
+              SELECT
+                  1/0
+              FROM #hi_plan_stats AS ps
+           )
+        BEGIN
+            SELECT
+                table_name =
+                    '#hi_plan_stats',
+                ps.*
+            FROM #hi_plan_stats AS ps
+            ORDER BY
+                ps.plan_id
+            OPTION(RECOMPILE);
+        END;
+        ELSE
+        BEGIN
+            SELECT
+                result =
+                    '#hi_plan_stats is empty';
+        END;
+
+        IF EXISTS
+           (
+              SELECT
+                  1/0
+              FROM #hi_query_stats AS qs
+           )
+        BEGIN
+            SELECT
+                table_name =
+                    '#hi_query_stats',
+                qs.*
+            FROM #hi_query_stats AS qs
+            ORDER BY
+                qs.query_hash
+            OPTION(RECOMPILE);
+        END;
+        ELSE
+        BEGIN
+            SELECT
+                result =
+                    '#hi_query_stats is empty';
+        END;
+
+        IF EXISTS
+           (
+              SELECT
+                  1/0
+              FROM #hi_scored AS s
+           )
+        BEGIN
+            SELECT
+                table_name =
+                    '#hi_scored',
+                s.*
+            FROM #hi_scored AS s
+            ORDER BY
+                s.query_hash
+            OPTION(RECOMPILE);
+        END;
+        ELSE
+        BEGIN
+            SELECT
+                result =
+                    '#hi_scored is empty';
+        END;
+
+        IF EXISTS
+           (
+              SELECT
+                  1/0
+              FROM #hi_interesting AS i
+           )
+        BEGIN
+            SELECT
+                table_name =
+                    '#hi_interesting',
+                i.*
+            FROM #hi_interesting AS i
+            ORDER BY
+                i.query_hash
+            OPTION(RECOMPILE);
+        END;
+        ELSE
+        BEGIN
+            SELECT
+                result =
+                    '#hi_interesting is empty';
+        END;
+
+        IF EXISTS
+           (
+              SELECT
+                  1/0
+              FROM #hi_representative_text AS rt
+           )
+        BEGIN
+            SELECT
+                table_name =
+                    '#hi_representative_text',
+                rt.*
+            FROM #hi_representative_text AS rt
+            ORDER BY
+                rt.query_hash,
+                rt.rn
+            OPTION(RECOMPILE);
+        END;
+        ELSE
+        BEGIN
+            SELECT
+                result =
+                    '#hi_representative_text is empty';
+        END;
+
+        IF EXISTS
+           (
+              SELECT
+                  1/0
+              FROM #hi_time_buckets AS tb
+           )
+        BEGIN
+            SELECT
+                table_name =
+                    '#hi_time_buckets',
+                tb.*
+            FROM #hi_time_buckets AS tb
+            ORDER BY
+                tb.query_hash,
+                tb.time_bucket
+            OPTION(RECOMPILE);
+        END;
+        ELSE
+        BEGIN
+            SELECT
+                result =
+                    '#hi_time_buckets is empty';
+        END;
+
+        IF EXISTS
+           (
+              SELECT
+                  1/0
+              FROM #hi_primary_window AS pw
+           )
+        BEGIN
+            SELECT
+                table_name =
+                    '#hi_primary_window',
+                pw.*
+            FROM #hi_primary_window AS pw
+            ORDER BY
+                pw.query_hash
+            OPTION(RECOMPILE);
+        END;
+        ELSE
+        BEGIN
+            SELECT
+                result =
+                    '#hi_primary_window is empty';
+        END;
+
+        IF EXISTS
+           (
+              SELECT
+                  1/0
+              FROM #hi_query_waits AS qw
+           )
+        BEGIN
+            SELECT
+                table_name =
+                    '#hi_query_waits',
+                qw.*
+            FROM #hi_query_waits AS qw
+            ORDER BY
+                qw.query_hash
+            OPTION(RECOMPILE);
+        END;
+        ELSE
+        BEGIN
+            SELECT
+                result =
+                    '#hi_query_waits is empty';
+        END;
+
+        IF EXISTS
+           (
+              SELECT
+                  1/0
+              FROM #hi_wait_staging AS ws
+           )
+        BEGIN
+            SELECT
+                table_name =
+                    '#hi_wait_staging',
+                ws.*
+            FROM #hi_wait_staging AS ws
+            ORDER BY
+                ws.query_hash,
+                ws.rn
+            OPTION(RECOMPILE);
+        END;
+        ELSE
+        BEGIN
+            SELECT
+                result =
+                    '#hi_wait_staging is empty';
+        END;
+
+        IF EXISTS
+           (
+              SELECT
+                  1/0
+              FROM #hi_query_identifiers AS qi
+           )
+        BEGIN
+            SELECT
+                table_name =
+                    '#hi_query_identifiers',
+                qi.*
+            FROM #hi_query_identifiers AS qi
+            ORDER BY
+                qi.query_hash
+            OPTION(RECOMPILE);
+        END;
+        ELSE
+        BEGIN
+            SELECT
+                result =
+                    '#hi_query_identifiers is empty';
+        END;
+
+        IF EXISTS
+           (
+              SELECT
+                  1/0
+              FROM #hi_id_staging_queries AS isq
+           )
+        BEGIN
+            SELECT
+                table_name =
+                    '#hi_id_staging_queries',
+                isq.*
+            FROM #hi_id_staging_queries AS isq
+            ORDER BY
+                isq.query_hash,
+                isq.query_id
+            OPTION(RECOMPILE);
+        END;
+        ELSE
+        BEGIN
+            SELECT
+                result =
+                    '#hi_id_staging_queries is empty';
+        END;
+
+        IF EXISTS
+           (
+              SELECT
+                  1/0
+              FROM #hi_id_staging_plans AS isp
+           )
+        BEGIN
+            SELECT
+                table_name =
+                    '#hi_id_staging_plans',
+                isp.*
+            FROM #hi_id_staging_plans AS isp
+            ORDER BY
+                isp.query_hash,
+                isp.plan_id
+            OPTION(RECOMPILE);
+        END;
+        ELSE
+        BEGIN
+            SELECT
+                result =
+                    '#hi_id_staging_plans is empty';
+        END;
+
+        IF EXISTS
+           (
+              SELECT
+                  1/0
+              FROM #hi_id_staging_objects AS iso
+           )
+        BEGIN
+            SELECT
+                table_name =
+                    '#hi_id_staging_objects',
+                iso.*
+            FROM #hi_id_staging_objects AS iso
+            ORDER BY
+                iso.query_hash,
+                iso.object_id
+            OPTION(RECOMPILE);
+        END;
+        ELSE
+        BEGIN
+            SELECT
+                result =
+                    '#hi_id_staging_objects is empty';
+        END;
+
+        IF EXISTS
+           (
+              SELECT
+                  1/0
+              FROM #hi_output AS o
+           )
+        BEGIN
+            SELECT
+                table_name =
+                    '#hi_output',
+                o.*
+            FROM #hi_output AS o
+            ORDER BY
+                o.query_hash
+            OPTION(RECOMPILE);
+        END;
+        ELSE
+        BEGIN
+            SELECT
+                result =
+                    '#hi_output is empty';
+        END;
+    END;
+
     RETURN; /*Stop doing anything, I guess*/
 END; /*End debug*/
 RETURN; /*Yeah sure why not?*/
