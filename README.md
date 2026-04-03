@@ -25,6 +25,7 @@
     - [sp_HumanEvents](#human-events): Use Extended Events to track down various query performance issues
     - [sp_HumanEventsBlockViewer](#human-events-block-viewer): Analyze the blocked process report
     - [sp_QuickieStore](#quickie-store): The fastest and most configurable way to navigate Query Store data
+    - [sp_QuickieCache](#quickie-cache): High-impact query detection from the plan cache using Pareto analysis
     - [sp_QueryReproBuilder](#query-repro-builder): Generate executable reproduction scripts from Query Store data
     - [sp_HealthParser](#health-parser): Pull all the performance-related data from the system health Extended Event
     - [sp_LogHunter](#log-hunter): Get all of the worst stuff out of your error log
@@ -328,6 +329,53 @@ Current valid parameter details:
 | @version                                | varchar        | OUTPUT; for support                                                                                                                               | none; OUTPUT                                                                                                                                                                                                                                                                                                                                                      | none; OUTPUT                                                              |
 | @version_date                           | datetime       | OUTPUT; for support                                                                                                                               | none; OUTPUT                                                                                                                                                                                                                                                                                                                                                      | none; OUTPUT                                                              |
 
+
+[*Back to top*](#navigatory)
+
+## Quickie Cache
+
+The plan cache companion to sp_QuickieStore. While QuickieStore digs into Query Store data, QuickieCache uses the same Pareto (80/20) analysis approach against the plan cache DMVs.
+
+It aggregates data from `sys.dm_exec_query_stats`, `sys.dm_exec_procedure_stats`, `sys.dm_exec_function_stats`, and `sys.dm_exec_trigger_stats`, then scores queries across 7 resource dimensions (CPU, duration, reads, writes, memory grants, spills, executions) using `PERCENT_RANK`. Only the vital few queries with disproportionate resource consumption are surfaced.
+
+Results come in three result sets:
+ * **Plan cache health findings**: plan age distribution, single-use plan bloat, duplicate plan detection, USERSTORE_TOKENPERM pressure
+ * **High-impact queries**: Pareto-scored queries with impact scores, resource shares, and diagnostic signals (parameter sniffing, plan instability, wasteful grants, wait-bound queries, etc.)
+ * **Workload profile summary**: overall concentration analysis with tuning recommendations
+
+Requires SQL Server 2016 SP1+ for full memory grant and spill analysis.
+
+Current valid parameter details:
+
+|       parameter_name        |  data_type   |                                             description                                              |               valid_inputs               |  defaults  |
+|-----------------------------|--------------|------------------------------------------------------------------------------------------------------|------------------------------------------|------------|
+| @top                        | integer      | candidates per metric dimension before dedup                                                         | a positive integer                       | 10         |
+| @database_name              | sysname      | filter to a specific database                                                                        | a valid database name                    | NULL       |
+| @start_date                 | datetime     | only include plans created after this date                                                           | a valid datetime                         | NULL       |
+| @end_date                   | datetime     | only include plans created before this date                                                          | a valid datetime                         | NULL       |
+| @minimum_execution_count    | bigint       | minimum execution count to include a query                                                           | a positive integer                       | 2          |
+| @ignore_system_databases    | bit          | exclude system databases (master, model, msdb, tempdb)                                               | 0 or 1                                   | 1          |
+| @impact_threshold           | decimal(3,2) | minimum impact_score (0.00-1.00) to surface in results                                               | 0.00 to 1.00                             | 0.50       |
+| @debug                      | bit          | print diagnostic information                                                                         | 0 or 1                                   | 0          |
+| @help                       | bit          | display parameter help                                                                               | 0 or 1                                   | 0          |
+
+```sql
+-- Basic execution
+EXECUTE dbo.sp_QuickieCache;
+
+-- Focus on a specific database
+EXECUTE dbo.sp_QuickieCache
+    @database_name = N'YourDatabase';
+
+-- Only plans created today
+EXECUTE dbo.sp_QuickieCache
+    @start_date = '20260403';
+
+-- Lower the threshold to surface more queries
+EXECUTE dbo.sp_QuickieCache
+    @impact_threshold = 0.25,
+    @top = 20;
+```
 
 [*Back to top*](#navigatory)
 
