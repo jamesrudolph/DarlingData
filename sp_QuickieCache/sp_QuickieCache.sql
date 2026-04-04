@@ -62,6 +62,8 @@ ALTER PROCEDURE
     @minimum_execution_count bigint = 2, /*noise floor for single-exec queries*/
     @ignore_system_databases bit = 1, /*exclude master, model, msdb, tempdb*/
     @impact_threshold decimal(3, 2) = 0.50, /*minimum impact_score to surface (0.00-1.00)*/
+    @find_single_use_plans bit = 0, /*show single-use plans consuming the most memory*/
+    @find_duplicate_plans bit = 0, /*show query hashes with multiple cached plans*/
     @debug bit = 0, /*print diagnostics*/
     @help bit = 0, /*display parameter help*/
     @version varchar(30) = NULL OUTPUT, /*OUTPUT; for support*/
@@ -122,6 +124,10 @@ BEGIN
                     THEN N'exclude system databases (master, model, msdb, tempdb)'
                     WHEN N'@impact_threshold'
                     THEN N'minimum impact_score to surface in results'
+                    WHEN N'@find_single_use_plans'
+                    THEN N'show single-use plans consuming the most memory'
+                    WHEN N'@find_duplicate_plans'
+                    THEN N'show query hashes with multiple cached plans'
                     WHEN N'@debug'
                     THEN N'print diagnostic information'
                     WHEN N'@help'
@@ -150,6 +156,10 @@ BEGIN
                     THEN N'0 or 1'
                     WHEN N'@impact_threshold'
                     THEN N'0.00 to 1.00'
+                    WHEN N'@find_single_use_plans'
+                    THEN N'0 or 1'
+                    WHEN N'@find_duplicate_plans'
+                    THEN N'0 or 1'
                     WHEN N'@debug'
                     THEN N'0 or 1'
                     WHEN N'@help'
@@ -178,6 +188,10 @@ BEGIN
                     THEN N'1'
                     WHEN N'@impact_threshold'
                     THEN N'0.50'
+                    WHEN N'@find_single_use_plans'
+                    THEN N'0'
+                    WHEN N'@find_duplicate_plans'
+                    THEN N'0'
                     WHEN N'@debug'
                     THEN N'0'
                     WHEN N'@help'
@@ -323,6 +337,134 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
        )
     BEGIN
         RAISERROR(N'@sort_order must be one of: cpu, duration, reads, writes, memory, spills, executions.', 16, 1) WITH NOWAIT;
+        RETURN;
+    END;
+
+    /*
+    ╔══════════════════════════════════════════════════╗
+    ║  Single-use plans mode                           ║
+    ╚══════════════════════════════════════════════════╝
+
+    Shows the largest single-use plans by cached size,
+    sorted by memory consumption descending.
+    */
+    IF @find_single_use_plans = 1
+    BEGIN
+        SELECT TOP (@top)
+            database_name =
+                DB_NAME(CONVERT(integer, pa.value)),
+            cached_plan_size_kb =
+                cp.size_in_bytes / 1024,
+            query_text =
+                st.text,
+            query_plan =
+                CASE
+                    WHEN TRY_CAST(qp.query_plan AS xml) IS NOT NULL
+                    THEN TRY_CAST(qp.query_plan AS xml)
+                    WHEN TRY_CAST(qp.query_plan AS xml) IS NULL
+                    THEN
+                    (
+                        SELECT
+                            [processing-instruction(query_plan)] =
+                                N'-- ' + NCHAR(13) + NCHAR(10) +
+                                N'-- This is a huge query plan.' + NCHAR(13) + NCHAR(10) +
+                                N'-- Remove the headers and footers, save it as a .sqlplan file, and re-open it.' + NCHAR(13) + NCHAR(10) +
+                                NCHAR(13) + NCHAR(10) +
+                                REPLACE(qp.query_plan, N'<RelOp', NCHAR(13) + NCHAR(10) + N'<RelOp') +
+                                NCHAR(13) + NCHAR(10) COLLATE Latin1_General_Bin2
+                        FOR
+                            XML
+                            PATH(N''),
+                            TYPE
+                    )
+                END,
+            qs.query_hash,
+            qs.query_plan_hash,
+            qs.creation_time,
+            qs.last_execution_time,
+            qs.sql_handle,
+            qs.plan_handle
+        FROM sys.dm_exec_query_stats AS qs
+        JOIN sys.dm_exec_cached_plans AS cp
+          ON cp.plan_handle = qs.plan_handle
+        CROSS APPLY
+        (
+            SELECT TOP (1)
+                value = pa.value
+            FROM sys.dm_exec_plan_attributes(qs.plan_handle) AS pa
+            WHERE pa.attribute = N'dbid'
+        ) AS pa
+        CROSS APPLY sys.dm_exec_sql_text(qs.sql_handle) AS st
+        OUTER APPLY sys.dm_exec_text_query_plan
+        (
+            qs.plan_handle,
+            qs.statement_start_offset,
+            qs.statement_end_offset
+        ) AS qp
+        WHERE qs.execution_count = 1
+        AND   (@ignore_system_databases = 0 OR ISNULL(CONVERT(integer, pa.value), 0) NOT IN (1, 2, 3, 4))
+        AND   ISNULL(CONVERT(integer, pa.value), 0) < 32761
+        AND   (@database_id IS NULL OR CONVERT(integer, pa.value) = @database_id)
+        ORDER BY
+            cp.size_in_bytes DESC
+        OPTION(RECOMPILE, MAXDOP 1);
+
+        RETURN;
+    END;
+
+    /*
+    ╔══════════════════════════════════════════════════╗
+    ║  Duplicate plans mode                            ║
+    ╚══════════════════════════════════════════════════╝
+
+    Shows query hashes that have been compiled into
+    multiple cached plans, sorted by plan count descending.
+    */
+    IF @find_duplicate_plans = 1
+    BEGIN
+        SELECT TOP (@top)
+            database_name =
+                DB_NAME(CONVERT(integer, MAX(pa.value))),
+            qs.query_hash,
+            plan_count =
+                COUNT_BIG(DISTINCT qs.plan_handle),
+            total_executions =
+                SUM(qs.execution_count),
+            total_cpu_ms =
+                SUM(qs.total_worker_time) / 1000.0,
+            total_logical_reads =
+                SUM(qs.total_logical_reads),
+            total_cached_size_kb =
+                SUM(cp.size_in_bytes) / 1024,
+            oldest_plan =
+                MIN(qs.creation_time),
+            newest_plan =
+                MAX(qs.creation_time),
+            sample_query_text =
+                MAX(st.text)
+        FROM sys.dm_exec_query_stats AS qs
+        JOIN sys.dm_exec_cached_plans AS cp
+          ON cp.plan_handle = qs.plan_handle
+        CROSS APPLY
+        (
+            SELECT TOP (1)
+                value = pa.value
+            FROM sys.dm_exec_plan_attributes(qs.plan_handle) AS pa
+            WHERE pa.attribute = N'dbid'
+        ) AS pa
+        CROSS APPLY sys.dm_exec_sql_text(qs.sql_handle) AS st
+        WHERE qs.query_hash <> 0x0000000000000000
+        AND   (@ignore_system_databases = 0 OR ISNULL(CONVERT(integer, pa.value), 0) NOT IN (1, 2, 3, 4))
+        AND   ISNULL(CONVERT(integer, pa.value), 0) < 32761
+        AND   (@database_id IS NULL OR CONVERT(integer, pa.value) = @database_id)
+        GROUP BY
+            qs.query_hash
+        HAVING
+            COUNT_BIG(DISTINCT qs.plan_handle) > 1
+        ORDER BY
+            COUNT_BIG(DISTINCT qs.plan_handle) DESC
+        OPTION(RECOMPILE, MAXDOP 1);
+
         RETURN;
     END;
 
@@ -537,7 +679,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
             WHERE pa.attribute = N'dbid'
         ) AS pa
         WHERE pa.value IS NOT NULL
-        AND   CONVERT(integer, pa.value) NOT IN (1, 2, 3, 4)
+        AND   (@ignore_system_databases = 0 OR CONVERT(integer, pa.value) NOT IN (1, 2, 3, 4))
         AND   CONVERT(integer, pa.value) < 32761
         AND   (@database_id IS NULL OR CONVERT(integer, pa.value) = @database_id)
         GROUP BY
@@ -646,7 +788,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
             WHERE pa.attribute = N'dbid'
         ) AS pa
         WHERE pa.value IS NOT NULL
-        AND   CONVERT(integer, pa.value) NOT IN (1, 2, 3, 4)
+        AND   (@ignore_system_databases = 0 OR CONVERT(integer, pa.value) NOT IN (1, 2, 3, 4))
         AND   CONVERT(integer, pa.value) < 32761
         AND   (@database_id IS NULL OR CONVERT(integer, pa.value) = @database_id)
         GROUP BY
