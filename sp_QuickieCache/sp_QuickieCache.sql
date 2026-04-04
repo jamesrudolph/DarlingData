@@ -10,11 +10,11 @@ GO
 /*
  ██████╗ ██╗   ██╗██╗ ██████╗██╗  ██╗██╗███████╗ ██████╗ █████╗  ██████╗██╗  ██╗███████╗
 ██╔═══██╗██║   ██║██║██╔════╝██║ ██╔╝██║██╔════╝██╔════╝██╔══██╗██╔════╝██║  ██║██╔════╝
-██║   ██║██║   ██║██║██║     █████╔╝ ██║█████╗  ██║     ███████║██║     ███████║█████╗  
-██║▄▄ ██║██║   ██║██║██║     ██╔═██╗ ██║██╔══╝  ██║     ██╔══██║██║     ██╔══██║██╔══╝  
+██║   ██║██║   ██║██║██║     █████╔╝ ██║█████╗  ██║     ███████║██║     ███████║█████╗
+██║▄▄ ██║██║   ██║██║██║     ██╔═██╗ ██║██╔══╝  ██║     ██╔══██║██║     ██╔══██║██╔══╝
 ╚██████╔╝╚██████╔╝██║╚██████╗██║  ██╗██║███████╗╚██████╗██║  ██║╚██████╗██║  ██║███████╗
  ╚══▀▀═╝  ╚═════╝ ╚═╝ ╚═════╝╚═╝  ╚═╝╚═╝╚══════╝ ╚═════╝╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝╚══════╝
-                                                                                                                                                                                                   
+
 sp_QuickieCache: The plan cache companion to sp_QuickieStore.
 
 Copyright 2026 Darling Data, LLC
@@ -29,7 +29,7 @@ EXECUTE sp_QuickieCache
     @debug = 1;
 
 For support, head over to GitHub:
-https://code.erikdarling.com    
+https://code.erikdarling.com
 
 Uses the Pareto principle to find the vital few queries consuming
 disproportionate resources across statements, procedures, functions,

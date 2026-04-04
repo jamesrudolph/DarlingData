@@ -1,4 +1,4 @@
--- Compile Date: 04/04/2026 14:37:51 UTC
+-- Compile Date: 04/04/2026 14:58:35 UTC
 SET ANSI_NULLS ON;
 SET ANSI_PADDING ON;
 SET ANSI_WARNINGS ON;
@@ -36381,9 +36381,52 @@ BEGIN
 END;
 
 END; /*Final end*/
-SET ANSI_NULLS ON;
+SET ANSI_WARNINGS ON;
+SET ARITHABORT ON;
+SET CONCAT_NULL_YIELDS_NULL ON;
 SET QUOTED_IDENTIFIER ON;
+SET NUMERIC_ROUNDABORT OFF;
+SET IMPLICIT_TRANSACTIONS OFF;
+SET STATISTICS TIME, IO OFF;
 GO
+
+/*
+ ██████╗ ██╗   ██╗██╗ ██████╗██╗  ██╗██╗███████╗ ██████╗ █████╗  ██████╗██╗  ██╗███████╗
+██╔═══██╗██║   ██║██║██╔════╝██║ ██╔╝██║██╔════╝██╔════╝██╔══██╗██╔════╝██║  ██║██╔════╝
+██║   ██║██║   ██║██║██║     █████╔╝ ██║█████╗  ██║     ███████║██║     ███████║█████╗
+██║▄▄ ██║██║   ██║██║██║     ██╔═██╗ ██║██╔══╝  ██║     ██╔══██║██║     ██╔══██║██╔══╝
+╚██████╔╝╚██████╔╝██║╚██████╗██║  ██╗██║███████╗╚██████╗██║  ██║╚██████╗██║  ██║███████╗
+ ╚══▀▀═╝  ╚═════╝ ╚═╝ ╚═════╝╚═╝  ╚═╝╚═╝╚══════╝ ╚═════╝╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝╚══════╝
+
+sp_QuickieCache: The plan cache companion to sp_QuickieStore.
+
+Copyright 2026 Darling Data, LLC
+https://www.erikdarling.com/
+
+For usage and licensing details, run:
+EXECUTE sp_QuickieCache
+    @help = 1;
+
+For working through errors:
+EXECUTE sp_QuickieCache
+    @debug = 1;
+
+For support, head over to GitHub:
+https://code.erikdarling.com
+
+Uses the Pareto principle to find the vital few queries consuming
+disproportionate resources across statements, procedures, functions,
+and triggers. Scores across 7 dimensions using PERCENT_RANK and
+surfaces queries with impact_score >= @impact_threshold.
+
+Data sources:
+ * sys.dm_exec_query_stats      (statements)
+ * sys.dm_exec_procedure_stats  (stored procedures)
+ * sys.dm_exec_function_stats   (scalar/table-valued functions)
+ * sys.dm_exec_trigger_stats    (triggers)
+
+Requires SQL Server 2016 SP1+ for memory grant and spill columns.
+*/
 
 IF OBJECT_ID(N'dbo.sp_QuickieCache', N'P') IS NULL
 BEGIN
@@ -36403,7 +36446,9 @@ ALTER PROCEDURE
     @ignore_system_databases bit = 1, /*exclude master, model, msdb, tempdb*/
     @impact_threshold decimal(3, 2) = 0.50, /*minimum impact_score to surface (0.00-1.00)*/
     @debug bit = 0, /*print diagnostics*/
-    @help bit = 0 /*display parameter help*/
+    @help bit = 0, /*display parameter help*/
+    @version varchar(30) = NULL OUTPUT, /*OUTPUT; for support*/
+    @version_date datetime = NULL OUTPUT /*OUTPUT; for support*/
 )
 WITH RECOMPILE
 AS
@@ -36411,31 +36456,9 @@ BEGIN
     SET NOCOUNT ON;
     SET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
 
-    /*
-    ██████╗ ██╗      █████╗ ███╗   ██╗     ██████╗ █████╗  ██████╗██╗  ██╗███████╗
-    ██╔══██╗██║     ██╔══██╗████╗  ██║    ██╔════╝██╔══██╗██╔════╝██║  ██║██╔════╝
-    ██████╔╝██║     ███████║██╔██╗ ██║    ██║     ███████║██║     ███████║█████╗
-    ██╔═══╝ ██║     ██╔══██║██║╚██╗██║    ██║     ██╔══██║██║     ██╔══██║██╔══╝
-    ██║     ███████╗██║  ██║██║ ╚████║    ╚██████╗██║  ██║╚██████╗██║  ██║███████╗
-    ╚═╝     ╚══════╝╚═╝  ╚═╝╚═╝  ╚═══╝     ╚═════╝╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝╚══════╝
-
-    sp_QuickieCache: The plan cache companion to sp_QuickieStore.
-
-    Copyright 2026 Erik Darling Data, LLC
-
-    Uses the Pareto principle to find the vital few queries consuming
-    disproportionate resources across statements, procedures, functions,
-    and triggers. Scores across 7 dimensions using PERCENT_RANK and
-    surfaces queries with impact_score >= @impact_threshold.
-
-    Data sources:
-        sys.dm_exec_query_stats      (statements)
-        sys.dm_exec_procedure_stats  (stored procedures)
-        sys.dm_exec_function_stats   (scalar/table-valued functions)
-        sys.dm_exec_trigger_stats    (triggers)
-
-    Requires SQL Server 2016 SP1+ for memory grant and spill columns.
-    */
+    SELECT
+        @version = '1.4',
+        @version_date = '20260401';
 
     /*
     ╔══════════════════════════════════════════════════╗
@@ -36471,6 +36494,10 @@ BEGIN
                     THEN N'Print diagnostic information. Default: 0.'
                     WHEN N'@help'
                     THEN N'You are here. Default: 0.'
+                    WHEN N'@version'
+                    THEN N'OUTPUT; for support.'
+                    WHEN N'@version_date'
+                    THEN N'OUTPUT; for support.'
                     ELSE N''
                 END
         FROM sys.all_parameters AS ap
@@ -36486,6 +36513,38 @@ BEGIN
             scoring = N'PERCENT_RANK per dimension, averaged across active dimensions (>= 0.1% of total)',
             high_signal = N'Dimensions where query ranks >= 80th percentile',
             output = N'Queries with impact_score >= @impact_threshold, plus workload profile summary';
+
+        /*
+        License to F5
+        */
+        SELECT
+            mit_license_yo =
+                'i am MIT licensed, so like, do whatever'
+        UNION ALL
+
+        SELECT
+            mit_license_yo =
+                'see printed messages for full license';
+
+        RAISERROR('
+MIT License
+
+Copyright 2026 Darling Data, LLC
+
+https://www.erikdarling.com/
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"),
+to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute,
+sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the
+following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE
+FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+', 0, 1) WITH NOWAIT;
 
         RETURN;
     END;
