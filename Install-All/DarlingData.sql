@@ -1,4 +1,4 @@
--- Compile Date: 04/03/2026 17:08:14 UTC
+-- Compile Date: 04/04/2026 14:37:51 UTC
 SET ANSI_NULLS ON;
 SET ANSI_PADDING ON;
 SET ANSI_WARNINGS ON;
@@ -36395,6 +36395,7 @@ ALTER PROCEDURE
     dbo.sp_QuickieCache
 (
     @top integer = 10, /*candidates per metric dimension before dedup*/
+    @sort_order varchar(20) = 'cpu', /*secondary sort after impact_score: cpu, duration, reads, writes, memory, spills, executions*/
     @database_name sysname = NULL, /*filter to a specific database*/
     @start_date datetime = NULL, /*only include plans created after this date*/
     @end_date datetime = NULL, /*only include plans created before this date*/
@@ -36452,6 +36453,8 @@ BEGIN
                 CASE ap.name
                     WHEN N'@top'
                     THEN N'Number of candidate queries per metric dimension (cpu, reads, etc.) before dedup. Default: 10.'
+                    WHEN N'@sort_order'
+                    THEN N'Secondary sort after impact_score. Options: cpu, duration, reads, writes, memory, spills, executions. Default: cpu.'
                     WHEN N'@database_name'
                     THEN N'Filter to a specific database. Default: NULL (all user databases).'
                     WHEN N'@start_date'
@@ -36566,6 +36569,19 @@ BEGIN
         RETURN;
     END;
 
+    SELECT
+        @sort_order = LOWER(LTRIM(RTRIM(@sort_order)));
+
+    IF @sort_order NOT IN
+       (
+           'cpu', 'duration', 'reads', 'writes',
+           'memory', 'spills', 'executions'
+       )
+    BEGIN
+        RAISERROR(N'@sort_order must be one of: cpu, duration, reads, writes, memory, spills, executions.', 16, 1) WITH NOWAIT;
+        RETURN;
+    END;
+
     /*
     ╔══════════════════════════════════════════════════╗
     ║  Plan cache health analysis                      ║
@@ -36631,6 +36647,15 @@ BEGIN
             ),
         @oldest_plan_date = MIN(qs.creation_time)
     FROM sys.dm_exec_query_stats AS qs
+    CROSS APPLY
+    (
+        SELECT TOP (1)
+            value = pa.value
+        FROM sys.dm_exec_plan_attributes(qs.plan_handle) AS pa
+        WHERE pa.attribute = N'dbid'
+    ) AS pa
+    WHERE 1 = 1
+    AND   (@database_id IS NULL OR pa.value = @database_id)
     OPTION(RECOMPILE);
 
     IF @total_plans > 0
@@ -36770,6 +36795,7 @@ BEGIN
         WHERE pa.value IS NOT NULL
         AND   CONVERT(integer, pa.value) NOT IN (1, 2, 3, 4)
         AND   CONVERT(integer, pa.value) < 32761
+        AND   (@database_id IS NULL OR CONVERT(integer, pa.value) = @database_id)
         GROUP BY
             pa.value
     ) AS x
@@ -36796,7 +36822,15 @@ BEGIN
         SELECT
             plan_count = COUNT_BIG(*)
         FROM sys.dm_exec_query_stats AS qs
+        CROSS APPLY
+        (
+            SELECT TOP (1)
+                value = pa.value
+            FROM sys.dm_exec_plan_attributes(qs.plan_handle) AS pa
+            WHERE pa.attribute = N'dbid'
+        ) AS pa
         WHERE qs.query_hash <> 0x0000000000000000
+        AND   (@database_id IS NULL OR CONVERT(integer, pa.value) = @database_id)
         GROUP BY
             qs.query_hash
         HAVING
@@ -36870,6 +36904,7 @@ BEGIN
         WHERE pa.value IS NOT NULL
         AND   CONVERT(integer, pa.value) NOT IN (1, 2, 3, 4)
         AND   CONVERT(integer, pa.value) < 32761
+        AND   (@database_id IS NULL OR CONVERT(integer, pa.value) = @database_id)
         GROUP BY
             pa.value
         ORDER BY
@@ -38304,7 +38339,16 @@ OPTION(RECOMPILE, MAXDOP 1);';
     ) AS qp
     WHERE s.impact_score >= @impact_threshold
     ORDER BY
-        s.impact_score DESC
+        s.impact_score DESC,
+        CASE @sort_order
+            WHEN 'cpu'        THEN s.cpu_share
+            WHEN 'duration'   THEN s.duration_share
+            WHEN 'reads'      THEN s.reads_share
+            WHEN 'writes'     THEN s.writes_share
+            WHEN 'memory'     THEN s.grant_share
+            WHEN 'spills'     THEN s.spills_share
+            WHEN 'executions' THEN s.executions_share
+        END DESC
     OPTION(RECOMPILE);
 
     /*
