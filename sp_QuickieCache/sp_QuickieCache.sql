@@ -10,11 +10,11 @@ GO
 /*
  ██████╗ ██╗   ██╗██╗ ██████╗██╗  ██╗██╗███████╗ ██████╗ █████╗  ██████╗██╗  ██╗███████╗
 ██╔═══██╗██║   ██║██║██╔════╝██║ ██╔╝██║██╔════╝██╔════╝██╔══██╗██╔════╝██║  ██║██╔════╝
-██║   ██║██║   ██║██║██║     █████╔╝ ██║█████╗  ██║     ███████║██║     ███████║█████╗  
-██║▄▄ ██║██║   ██║██║██║     ██╔═██╗ ██║██╔══╝  ██║     ██╔══██║██║     ██╔══██║██╔══╝  
+██║   ██║██║   ██║██║██║     █████╔╝ ██║█████╗  ██║     ███████║██║     ███████║█████╗
+██║▄▄ ██║██║   ██║██║██║     ██╔═██╗ ██║██╔══╝  ██║     ██╔══██║██║     ██╔══██║██╔══╝
 ╚██████╔╝╚██████╔╝██║╚██████╗██║  ██╗██║███████╗╚██████╗██║  ██║╚██████╗██║  ██║███████╗
  ╚══▀▀═╝  ╚═════╝ ╚═╝ ╚═════╝╚═╝  ╚═╝╚═╝╚══════╝ ╚═════╝╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝╚══════╝
-                                                                                                                                                                                                   
+
 sp_QuickieCache: The plan cache companion to sp_QuickieStore.
 
 Copyright 2026 Darling Data, LLC
@@ -29,7 +29,7 @@ EXECUTE sp_QuickieCache
     @debug = 1;
 
 For support, head over to GitHub:
-https://code.erikdarling.com    
+https://code.erikdarling.com
 
 Uses the Pareto principle to find the vital few queries consuming
 disproportionate resources across statements, procedures, functions,
@@ -54,7 +54,7 @@ GO
 ALTER PROCEDURE
     dbo.sp_QuickieCache
 (
-    @top integer = 10, /*candidates per metric dimension before dedup*/
+    @top bigint = 10, /*candidates per metric dimension before dedup*/
     @sort_order varchar(20) = 'cpu', /*secondary sort after impact_score: cpu, duration, reads, writes, memory, spills, executions*/
     @database_name sysname = NULL, /*filter to a specific database*/
     @start_date datetime = NULL, /*only include plans created after this date*/
@@ -84,6 +84,21 @@ BEGIN
     */
     IF @help = 1
     BEGIN
+        /*
+        Introduction
+        */
+        SELECT
+            introduction =
+                'hi, i''m sp_QuickieCache!' UNION ALL
+        SELECT 'you got me from https://code.erikdarling.com' UNION ALL
+        SELECT 'i analyze the plan cache to find the vital few queries consuming disproportionate resources' UNION ALL
+        SELECT 'think of me as the plan cache companion to sp_QuickieStore' UNION ALL
+        SELECT 'i score queries across 7 dimensions using Pareto (80/20) analysis' UNION ALL
+        SELECT 'from your loving sql server consultant, erik darling: https://erikdarling.com';
+
+        /*
+        Parameters
+        */
         SELECT
             parameter_name =
                 ap.name,
@@ -92,44 +107,97 @@ BEGIN
             description =
                 CASE ap.name
                     WHEN N'@top'
-                    THEN N'Number of candidate queries per metric dimension (cpu, reads, etc.) before dedup. Default: 10.'
+                    THEN N'candidates per metric dimension before dedup'
                     WHEN N'@sort_order'
-                    THEN N'Secondary sort after impact_score. Options: cpu, duration, reads, writes, memory, spills, executions. Default: cpu.'
+                    THEN N'secondary sort after impact_score'
                     WHEN N'@database_name'
-                    THEN N'Filter to a specific database. Default: NULL (all user databases).'
+                    THEN N'filter to a specific database'
                     WHEN N'@start_date'
-                    THEN N'Only include plans created after this date. Default: NULL (no filter).'
+                    THEN N'only include plans created after this date'
                     WHEN N'@end_date'
-                    THEN N'Only include plans created before this date. Default: NULL (no filter).'
+                    THEN N'only include plans created before this date'
                     WHEN N'@minimum_execution_count'
-                    THEN N'Minimum execution count to include a query. Filters single-execution noise. Default: 2.'
+                    THEN N'minimum execution count to include a query'
                     WHEN N'@ignore_system_databases'
-                    THEN N'Exclude system databases (master, model, msdb, tempdb). Default: 1.'
+                    THEN N'exclude system databases (master, model, msdb, tempdb)'
                     WHEN N'@impact_threshold'
-                    THEN N'Minimum impact_score (0.00-1.00) to surface in results. Default: 0.50.'
+                    THEN N'minimum impact_score to surface in results'
                     WHEN N'@debug'
-                    THEN N'Print diagnostic information. Default: 0.'
+                    THEN N'print diagnostic information'
                     WHEN N'@help'
-                    THEN N'You are here. Default: 0.'
+                    THEN N'how you got here'
                     WHEN N'@version'
-                    THEN N'OUTPUT; for support.'
+                    THEN N'OUTPUT; for support'
                     WHEN N'@version_date'
-                    THEN N'OUTPUT; for support.'
+                    THEN N'OUTPUT; for support'
+                    ELSE N''
+                END,
+            valid_inputs =
+                CASE ap.name
+                    WHEN N'@top'
+                    THEN N'a positive integer'
+                    WHEN N'@sort_order'
+                    THEN N'cpu, duration, reads, writes, memory, spills, executions'
+                    WHEN N'@database_name'
+                    THEN N'a valid database name'
+                    WHEN N'@start_date'
+                    THEN N'a valid datetime'
+                    WHEN N'@end_date'
+                    THEN N'a valid datetime'
+                    WHEN N'@minimum_execution_count'
+                    THEN N'a positive integer'
+                    WHEN N'@ignore_system_databases'
+                    THEN N'0 or 1'
+                    WHEN N'@impact_threshold'
+                    THEN N'0.00 to 1.00'
+                    WHEN N'@debug'
+                    THEN N'0 or 1'
+                    WHEN N'@help'
+                    THEN N'0 or 1'
+                    WHEN N'@version'
+                    THEN N'none; OUTPUT'
+                    WHEN N'@version_date'
+                    THEN N'none; OUTPUT'
+                    ELSE N''
+                END,
+            defaults =
+                CASE ap.name
+                    WHEN N'@top'
+                    THEN N'10'
+                    WHEN N'@sort_order'
+                    THEN N'cpu'
+                    WHEN N'@database_name'
+                    THEN N'NULL'
+                    WHEN N'@start_date'
+                    THEN N'NULL'
+                    WHEN N'@end_date'
+                    THEN N'NULL'
+                    WHEN N'@minimum_execution_count'
+                    THEN N'2'
+                    WHEN N'@ignore_system_databases'
+                    THEN N'1'
+                    WHEN N'@impact_threshold'
+                    THEN N'0.50'
+                    WHEN N'@debug'
+                    THEN N'0'
+                    WHEN N'@help'
+                    THEN N'0'
+                    WHEN N'@version'
+                    THEN N'none; OUTPUT'
+                    WHEN N'@version_date'
+                    THEN N'none; OUTPUT'
                     ELSE N''
                 END
         FROM sys.all_parameters AS ap
+        JOIN sys.all_objects AS o
+          ON ap.object_id = o.object_id
         JOIN sys.types AS t
-          ON t.user_type_id = ap.user_type_id
-        WHERE ap.object_id = @@PROCID
+          ON  ap.system_type_id = t.system_type_id
+          AND ap.user_type_id = t.user_type_id
+        WHERE o.name = N'sp_QuickieCache'
         ORDER BY
-            ap.parameter_id;
-
-        SELECT
-            methodology = N'Pareto (80/20) analysis across 7 resource dimensions',
-            dimensions = N'CPU, Duration, Logical Reads, Logical Writes, Memory Grants, Spills, Executions',
-            scoring = N'PERCENT_RANK per dimension, averaged across active dimensions (>= 0.1% of total)',
-            high_signal = N'Dimensions where query ranks >= 80th percentile',
-            output = N'Queries with impact_score >= @impact_threshold, plus workload profile summary';
+            ap.parameter_id
+        OPTION(MAXDOP 1, RECOMPILE);
 
         /*
         License to F5

@@ -326,6 +326,8 @@ BEGIN
       ON  ap.system_type_id = t.system_type_id
       AND ap.user_type_id = t.user_type_id
     WHERE o.name = N'sp_QuickieStore'
+    ORDER BY
+        ap.parameter_id
     OPTION(RECOMPILE);
 
     /*
