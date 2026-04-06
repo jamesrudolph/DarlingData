@@ -498,7 +498,8 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         HAVING
             COUNT_BIG(DISTINCT qs.plan_handle) > 1
         ORDER BY
-            COUNT_BIG(DISTINCT qs.plan_handle) DESC
+            COUNT_BIG(DISTINCT qs.plan_handle) DESC,
+            SUM(qs.total_worker_time) DESC
         OPTION(RECOMPILE, MAXDOP 1);
 
         RETURN;
