@@ -1,4 +1,4 @@
--- Compile Date: 04/04/2026 15:56:27 UTC
+-- Compile Date: 04/06/2026 03:09:14 UTC
 SET ANSI_NULLS ON;
 SET ANSI_PADDING ON;
 SET ANSI_WARNINGS ON;
@@ -36753,8 +36753,34 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         SELECT TOP (@top)
             database_name =
                 DB_NAME(CONVERT(integer, pa.value)),
+            qs.creation_time,
+            qs.last_execution_time,
+            plan_age =
+                CASE
+                    WHEN DATEDIFF(DAY, qs.creation_time, GETDATE()) > 0
+                    THEN CONVERT(varchar(10), DATEDIFF(DAY, qs.creation_time, GETDATE())) + 'd '
+                    ELSE N''
+                END +
+                CONVERT(varchar(10), DATEDIFF(HOUR, qs.creation_time, GETDATE()) % 24) + 'h ' +
+                CONVERT(varchar(10), DATEDIFF(MINUTE, qs.creation_time, GETDATE()) % 60) + 'm',
+            time_since_last_execution =
+                CASE
+                    WHEN DATEDIFF(DAY, qs.last_execution_time, GETDATE()) > 0
+                    THEN CONVERT(varchar(10), DATEDIFF(DAY, qs.last_execution_time, GETDATE())) + 'd '
+                    ELSE N''
+                END +
+                CONVERT(varchar(10), DATEDIFF(HOUR, qs.last_execution_time, GETDATE()) % 24) + 'h ' +
+                CONVERT(varchar(10), DATEDIFF(MINUTE, qs.last_execution_time, GETDATE()) % 60) + 'm',
             cached_plan_size_kb =
                 cp.size_in_bytes / 1024,
+            clear_plan_command =
+                N'DBCC FREEPROCCACHE (' +
+                CONVERT
+                (
+                    nvarchar(max),
+                    qs.plan_handle,
+                    1
+                ) + N');',
             query_text =
                 st.text,
             query_plan =
@@ -36780,8 +36806,6 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
                 END,
             qs.query_hash,
             qs.query_plan_hash,
-            qs.creation_time,
-            qs.last_execution_time,
             qs.sql_handle,
             qs.plan_handle
         FROM sys.dm_exec_query_stats AS qs
@@ -36832,8 +36856,20 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
                 SUM(qs.execution_count),
             total_cpu_ms =
                 SUM(qs.total_worker_time) / 1000.0,
+            total_duration_ms =
+                SUM(qs.total_elapsed_time) / 1000.0,
             total_logical_reads =
                 SUM(qs.total_logical_reads),
+            total_logical_writes =
+                SUM(qs.total_logical_writes),
+            total_physical_reads =
+                SUM(qs.total_physical_reads),
+            total_rows =
+                SUM(qs.total_rows),
+            min_rows =
+                MIN(qs.min_rows),
+            max_rows =
+                MAX(qs.max_rows),
             total_cached_size_kb =
                 SUM(cp.size_in_bytes) / 1024,
             oldest_plan =
